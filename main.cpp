@@ -12,6 +12,8 @@ typedef struct {
     sem_t* semJ;
     sem_t* semL;
     pthread_t* threads;
+    int* counter;
+    pthread_mutex_t* mutex;
 } MatrixData;
 
 //Function to read input
@@ -47,12 +49,17 @@ void readInput(MatrixData& data){
     data.C = (Matrix)malloc(m * sizeof(int*));
     data.D = (Matrix)malloc(m * sizeof(int*));
     data.L = (Matrix)malloc(m * sizeof(int*));
-    data.semL = (sem_t*)malloc(m * sizeof(sem_t));
+    data.semL = (sem_t*)malloc(n * sizeof(sem_t));
+
+    for (int i = 0; i < n; ++i) {
+        sem_init(&data.semL[i], 0, 0);
+    }
+
     for(int i = 0; i < m; ++i){
         data.C[i] = (int*)malloc(k * sizeof(int));
         data.D[i] = (int*)malloc(k * sizeof(int));
         data.L[i] = (int*)malloc(k * sizeof(int));
-        sem_init(&data.semL[i], 0, 0);
+
         for(int j = 0; j < k; ++j) {
             scanf("%d", &data.C[i][j]);
         }
@@ -64,6 +71,13 @@ void readInput(MatrixData& data){
         }
     }
 
+    data.counter = (int*)malloc((k) * sizeof(int));
+    data.mutex = (pthread_mutex_t*)malloc((k) * sizeof(pthread_mutex_t));
+
+    for(int i = 0; i < k; ++i){
+        data.counter[i] = 0;
+        pthread_mutex_init(&data.mutex[i], NULL);
+    }
     // Allocate memory for the final result
     data.R = (Matrix)malloc(n * sizeof(int*));
     for(int i = 0; i < n; ++i){
@@ -78,7 +92,6 @@ void* addRowsJ(void* arg) {
 
     for (int i = 0; i < data->N; ++i) {
         if (pthread_equal(self, data->threads[i])) {
-            sem_wait(&data->semJ[i]);
             for (int j = 0; j < data->M; ++j) {
                 data->J[i][j] = data->A[i][j] + data->B[i][j];
             }
@@ -88,20 +101,30 @@ void* addRowsJ(void* arg) {
     }
 
     return NULL;
+
 }
 
 // Function to add two rows of matrices
 void* addRowsL(void* arg) {
+
     MatrixData* data = (MatrixData*)arg;
     pthread_t self = pthread_self();
 
-    for (int i = data->N; i < data->M; ++i) {
+    for (int i = data->N; i <= data->N + data->M; ++i) {
         if (pthread_equal(self, data->threads[i])) {
-            sem_wait(&data->semL[i]);
+            int row = i - data->N;
             for (int j = 0; j < data->M; ++j) {
-                data->L[i][j] = data->A[i][j] + data->B[i][j];
+                data->L[row][j] = data->C[row][j] + data->D[row][j];
+
+                pthread_mutex_lock(&data->mutex[j]);
+                data->counter[j]++;
+                if(data->counter[j] == data->M){
+                    for(int k = 0; k < data->N; ++k){
+                        sem_post(&data->semL[k]);
+                    }
+                }
+                pthread_mutex_unlock(&data->mutex[j]);
             }
-            sem_post(&data->semL[i]);
             break;
         }
     }
@@ -111,21 +134,20 @@ void* addRowsL(void* arg) {
 
 // Function to multiply a row and a column of matrices
 void* multiplyRowAndColumn(void* arg) {
+
     MatrixData* data = (MatrixData*)arg;
     pthread_t self = pthread_self();
 
     for (int i = 0; i < data->N; ++i) {
         if (pthread_equal(self, data->threads[i + data->N + data->M])) {
             sem_wait(&data->semJ[i]);
-            sem_wait(&data->semL[i]);
             for (int j = 0; j < data->K; ++j) {
+                sem_wait(&data->semL[i]);
                 data->R[i][j] = 0;
                 for (int l = 0; l < data->M; ++l) {
                     data->R[i][j] += data->J[i][l] * data->L[l][j];
                 }
             }
-            sem_post(&data->semJ[i]);
-            sem_post(&data->semL[i]);
             break;
         }
     }
@@ -147,7 +169,7 @@ int main() {
     readInput(data);
 
     // Create the threads
-    data.threads = (pthread_t*)malloc((data.N + data.M + data.K) * sizeof(pthread_t));
+    data.threads = (pthread_t*)malloc((data.N + data.M + data.N) * sizeof(pthread_t));
 
     //Row adding threads for J
     for (int i = 0; i < data.N; ++i) {
@@ -160,23 +182,24 @@ int main() {
     }
 
     //Row multiplying threads
-    for (int i = 0; i < data.K; ++i) {
+    for (int i = 0; i < data.N ; ++i) {
         pthread_create(&data.threads[i + data.N + data.M], NULL, multiplyRowAndColumn, &data);
     }
 
     // Wait for the threads to finish
-    for (int i = 0; i < data.N + data.M + data.K; ++i) {
+    for (int i = 0; i < data.N + data.M + data.N; ++i) {
         pthread_join(data.threads[i], NULL);
     }
+    printMatrix(data.R, data.N, data.K);
 
     // Print the resulting matrix
-    printMatrix(data.L, data.N, data.K);
+//    printMatrix(data.R, data.N, data.K);
 
     // Destroy the semaphores
     for (int i = 0; i < data.N; ++i) {
         sem_destroy(&data.semJ[i]);
     }
-    for (int i = 0; i < data.M; ++i) {
+    for (int i = 0; i < data.N; ++i) {
         sem_destroy(&data.semL[i]);
     }
 

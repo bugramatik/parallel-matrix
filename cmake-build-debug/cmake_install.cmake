@@ -1,4 +1,4 @@
-# Install script for directory: /home/bs2019/e2380871/parallel-matrix
+# Install script for directory: /home/ergenekon/parallel-matrix
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/bs2019/e2380871/parallel-matrix/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/ergenekon/parallel-matrix/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
