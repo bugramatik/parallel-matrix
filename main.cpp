@@ -2,6 +2,8 @@
 #include <semaphore.h>
 #include <cstdlib>
 #include <cstdio>
+#include "hw2_output.h"
+
 using namespace std;
 
 typedef int** Matrix;
@@ -94,6 +96,8 @@ void* addRowsJ(void* arg) {
         if (pthread_equal(self, data->threads[i])) {
             for (int j = 0; j < data->M; ++j) {
                 data->J[i][j] = data->A[i][j] + data->B[i][j];
+                hw2_write_output(0,i+1,j+1,data->J[i][j]);
+
             }
             sem_post(&data->semJ[i]);
             break;
@@ -115,7 +119,7 @@ void* addRowsL(void* arg) {
             int row = i - data->N;
             for (int j = 0; j < data->M; ++j) {
                 data->L[row][j] = data->C[row][j] + data->D[row][j];
-
+                hw2_write_output(1,row+1,j+1,data->L[row][j]);
                 pthread_mutex_lock(&data->mutex[j]);
                 data->counter[j]++;
                 if(data->counter[j] == data->M){
@@ -147,6 +151,7 @@ void* multiplyRowAndColumn(void* arg) {
                 for (int l = 0; l < data->M; ++l) {
                     data->R[i][j] += data->J[i][l] * data->L[l][j];
                 }
+                hw2_write_output(2,i+1,j+1,data->R[i][j]);
             }
             break;
         }
@@ -165,10 +170,11 @@ void printMatrix(Matrix matrix, int n, int m){
 }
 
 int main() {
+    hw2_init_output();
     MatrixData data;
     readInput(data);
 
-    // Create the threads
+    // Creating the threads
     data.threads = (pthread_t*)malloc((data.N + data.M + data.N) * sizeof(pthread_t));
 
     //Row adding threads for J
@@ -186,16 +192,14 @@ int main() {
         pthread_create(&data.threads[i + data.N + data.M], NULL, multiplyRowAndColumn, &data);
     }
 
-    // Wait for the threads to finish
+    // Waiting for the threads to finish
     for (int i = 0; i < data.N + data.M + data.N; ++i) {
         pthread_join(data.threads[i], NULL);
     }
     printMatrix(data.R, data.N, data.K);
 
-    // Print the resulting matrix
-//    printMatrix(data.R, data.N, data.K);
 
-    // Destroy the semaphores
+    // Destroying the semaphores
     for (int i = 0; i < data.N; ++i) {
         sem_destroy(&data.semJ[i]);
     }
@@ -214,7 +218,8 @@ int main() {
     free(data.R);
     free(data.semJ);
     free(data.semL);
-
+    free(data.counter);
+    free(data.mutex);
     return 0;
 }
 
