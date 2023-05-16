@@ -25,7 +25,7 @@ void readInput(MatrixData& data){
     data.N = n;
     data.M = m;
 
-    // Allocate memory for the matrices and semaphores
+    // Allocating memory for the matrices and semaphores
     data.A = (Matrix)malloc(n * sizeof(int*));
     data.B = (Matrix)malloc(n * sizeof(int*));
     data.J = (Matrix)malloc(n * sizeof(int*));
@@ -80,7 +80,8 @@ void readInput(MatrixData& data){
         data.counter[i] = 0;
         pthread_mutex_init(&data.mutex[i], NULL);
     }
-    // Allocate memory for the final result
+
+    // Allocating memory for the final result
     data.R = (Matrix)malloc(n * sizeof(int*));
     for(int i = 0; i < n; ++i){
         data.R[i] = (int*)malloc(k * sizeof(int));
@@ -117,7 +118,7 @@ void* addRowsL(void* arg) {
     for (int i = data->N; i <= data->N + data->M; ++i) {
         if (pthread_equal(self, data->threads[i])) {
             int row = i - data->N;
-            for (int j = 0; j < data->M; ++j) {
+            for (int j = 0; j < data->K; ++j) {
                 data->L[row][j] = data->C[row][j] + data->D[row][j];
                 hw2_write_output(1,row+1,j+1,data->L[row][j]);
                 pthread_mutex_lock(&data->mutex[j]);
@@ -170,6 +171,7 @@ void printMatrix(Matrix matrix, int n, int m){
 }
 
 int main() {
+
     hw2_init_output();
     MatrixData data;
     readInput(data);
